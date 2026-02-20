@@ -26,7 +26,7 @@ export default function MealTracker({ userId, onMealAdded }) {
     setLoading(true);
     try {
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash", 
+        model: "gemini-2.5-flash", // Zaktualizowano na model z Twojej listy
         generationConfig: { temperature: 0.1, maxOutputTokens: 300 } 
       });
       
@@ -44,10 +44,10 @@ export default function MealTracker({ userId, onMealAdded }) {
 
       let text = (await result.response).text();
       
-      // Czyszczenie formatowania markdown
+      // Pancerny mechanizm wyciągania JSONa
       text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      
       const jsonMatch = text.match(/\{[\s\S]*\}/);
+      
       if (!jsonMatch) throw new Error("Błąd formatu odpowiedzi AI");
       const data = JSON.parse(jsonMatch[0]);
 
@@ -67,7 +67,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       
     } catch (err) {
       console.error(err);
-      alert("AI miało problem z formatem danych. Spróbuj opisać posiłek prościej.");
+      alert("AI miało problem z formatem danych. Spróbuj opisać posiłek inaczej.");
     } finally {
       setLoading(false);
     }
