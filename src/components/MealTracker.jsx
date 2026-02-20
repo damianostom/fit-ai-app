@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from '../lib/supabase';
 
-// Pobieranie klucza z bezpiecznych zmiennych Vercel/Vite
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -21,8 +20,8 @@ export default function MealTracker({ userId, onMealAdded }) {
   }
 
   const handleAnalyze = async () => {
-    if (!apiKey) return alert("Błąd: Klucz API nie jest skonfigurowany!");
-    if (!input && !image) return alert("Wpisz opis lub dodaj zdjęcie!");
+    if (!apiKey) return alert("Brak klucza API!");
+    if (!input && !image) return alert("Wpisz opis!");
     
     setLoading(true);
     try {
@@ -32,7 +31,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       });
       
       const prompt = `Jesteś dietetykiem. Przeanalizuj: "${input}". 
-      Zwróć TYLKO JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. Zero tekstu poza tym.`;
+      Zwróć TYLKO JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. Bez markdown, bez tekstu.`;
 
       let result;
       if (image) {
@@ -43,9 +42,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       }
 
       let text = (await result.response).text();
-      // Czyszczenie formatowania markdown
-      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      
+      // WYCINANIE JSONA (naprawia błąd formatu)
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("Błąd formatu odpowiedzi AI");
       const data = JSON.parse(jsonMatch[0]);
@@ -66,7 +63,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       
     } catch (err) {
       console.error(err);
-      alert("Błąd analizy AI. Sprawdź czy klucz API w Vercel jest aktualny.");
+      alert("AI miało problem z formatem danych. Spróbuj opisać posiłek dokładniej.");
     } finally {
       setLoading(false);
     }
@@ -74,15 +71,11 @@ export default function MealTracker({ userId, onMealAdded }) {
 
   return (
     <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '15px', backgroundColor: '#fff' }}>
-      <h4 style={{ marginTop: 0 }}>📸 Dodaj posiłek przez AI</h4>
-      <input type="text" placeholder="Co zjadłeś?" value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
+      <input type="text" placeholder="Co zjadłeś?" value={input} onChange={e => setInput(e.target.value)} style={{ width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '10px', border: '1px solid #e2e8f0' }} />
       <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0])} style={{ margin: '10px 0' }} />
-      <button onClick={handleAnalyze} disabled={loading} style={btnStyle(loading)}>
+      <button onClick={handleAnalyze} disabled={loading} style={{ width: '100%', padding: '14px', backgroundColor: loading ? '#cbd5e1' : '#22c55e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold' }}>
         {loading ? 'Analizowanie...' : 'Wyślij do AI'}
       </button>
     </div>
   );
 }
-
-const inStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '10px', border: '1px solid #e2e8f0' };
-const btnStyle = (loading) => ({ width: '100%', padding: '14px', backgroundColor: loading ? '#cbd5e1' : '#22c55e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' });
