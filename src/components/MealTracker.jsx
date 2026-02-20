@@ -26,10 +26,16 @@ export default function MealTracker({ userId, onMealAdded }) {
     
     setLoading(true);
     try {
-      // UŻYWAMY MODELU GEMINI 3 FLASH PREVIEW
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+      // ZMIANA: Używamy stabilnego i ultraszybkiego modelu gemini-2.5-flash
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash",
+        generationConfig: {
+          temperature: 0.1, // Minimalna kreatywność dla maksymalnej szybkości
+          maxOutputTokens: 150, // Krótka odpowiedź = szybka odpowiedź
+        }
+      });
       
-      const prompt = `Jesteś ekspertem dietetykiem. Przeanalizuj posiłek: "${input}". 
+      const prompt = `Jesteś precyzyjnym dietetykiem. Przeanalizuj posiłek: "${input}". 
       Zwróć dane WYŁĄCZNIE jako czysty obiekt JSON. Nie pisz żadnego innego tekstu.
       Format: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}`;
 
@@ -44,15 +50,15 @@ export default function MealTracker({ userId, onMealAdded }) {
       const response = await result.response;
       const text = response.text();
       
-      // Bezpieczne wyciąganie JSONa z odpowiedzi
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}') + 1;
-      const jsonString = text.substring(start, end);
-      const data = JSON.parse(jsonString);
+      // Szybkie i bezpieczne wyciąganie JSONa za pomocą Regex
+      const jsonMatch = text.match(/\{.*\}/s);
+      if (!jsonMatch) throw new Error("AI nie zwróciło poprawnego formatu danych.");
+      
+      const data = JSON.parse(jsonMatch[0]);
 
       const { error } = await supabase.from('meals').insert({
         user_id: userId,
-        name: data.name || "Posiłek",
+        name: data.name || "Posiłek AI",
         calories: Math.round(data.calories || 0),
         protein: data.protein || 0,
         fat: data.fat || 0,
@@ -68,7 +74,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       
     } catch (err) {
       console.error("Szczegóły błędu:", err);
-      alert("Błąd analizy AI. Upewnij się, że model 'gemini-3.0-flash-preview' jest dostępny w Twoim regionie.");
+      alert("Wystąpił błąd analizy. Spróbuj ponownie za chwilę.");
     } finally {
       setLoading(false);
     }
@@ -76,10 +82,10 @@ export default function MealTracker({ userId, onMealAdded }) {
 
   return (
     <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '12px', backgroundColor: '#fff' }}>
-      <h4 style={{ marginTop: 0 }}>📸 Dodaj posiłek przez AI (Gemini 3)</h4>
+      <h4 style={{ marginTop: 0 }}>📸 Dodaj posiłek przez AI (Gemini 2.5 Flash)</h4>
       <input 
         type="text" 
-        placeholder="Co dziś zjadłeś? (np. omlet z 2 jaj)" 
+        placeholder="Co dziś zjadłeś? (np. banan i 2 jajka)" 
         value={input} 
         onChange={e => setInput(e.target.value)} 
         style={{ width: '100%', padding: '12px', marginBottom: '10px', boxSizing: 'border-box', borderRadius: '8px', border: '1px solid #ccc' }} 
@@ -90,7 +96,16 @@ export default function MealTracker({ userId, onMealAdded }) {
       <button 
         onClick={handleAnalyze} 
         disabled={loading} 
-        style={{ width: '100%', padding: '12px', backgroundColor: loading ? '#ccc' : '#22c55e', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+        style={{ 
+          width: '100%', 
+          padding: '12px', 
+          backgroundColor: loading ? '#ccc' : '#22c55e', 
+          color: 'white', 
+          border: 'none', 
+          borderRadius: '8px', 
+          fontWeight: 'bold', 
+          cursor: loading ? 'not-allowed' : 'pointer' 
+        }}
       >
         {loading ? 'Analizowanie...' : 'Wyślij do AI'}
       </button>
