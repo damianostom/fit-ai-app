@@ -84,7 +84,7 @@ export default function Dashboard({ session }) {
         target_weight: parseFloat(profile.target_weight),
         target_date: profile.target_date, 
         daily_goal_kcal: res.kcal,
-        target_protein: res.p, // Zapisujemy limity od AI
+        target_protein: res.p,
         target_fat: res.f,
         target_carbs: res.c
       });
@@ -92,11 +92,14 @@ export default function Dashboard({ session }) {
       if (!error) {
         setProfile(prev => ({...prev, daily_goal_kcal: res.kcal, target_protein: res.p, target_fat: res.f, target_carbs: res.c}));
         await supabase.from('weight_history').upsert({ user_id: session.user.id, weight: w, recorded_at: new Date().toISOString().split('T')[0] });
-        alert(`Plan zaktualizowany! Limit: ${res.kcal} kcal.`);
+        alert(`Limit: ${res.kcal} kcal zaktualizowany!`);
         fetchWeightHistory();
+      } else {
+        throw error;
       }
     } catch (err) {
-      alert("Błąd AI podczas obliczeń.");
+      console.error(err);
+      alert("Błąd zapisu limitów. Upewnij się, że dodałeś kolumny w Supabase!");
     } finally {
       setLoading(false);
     }
@@ -127,7 +130,7 @@ export default function Dashboard({ session }) {
 
       <section style={cardStyle}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
-        <div style={{ width: '100%', height: '180px' }}>
+        <div style={{ width: '100%', height: '200px', minHeight: '200px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weightData.length > 0 ? weightData : [{date: '', waga: 0}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
