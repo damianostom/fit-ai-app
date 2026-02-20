@@ -9,7 +9,7 @@ export default function MealTracker({ userId, onMealAdded }) {
   const [input, setInput] = useState('');
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [lastResponse, setLastResponse] = useState(''); // Pole do debugowania
+  const [lastResponse, setLastResponse] = useState('');
 
   async function fileToGenerativePart(file) {
     const base64EncodedDataPromise = new Promise((resolve) => {
@@ -25,21 +25,20 @@ export default function MealTracker({ userId, onMealAdded }) {
     if (!input && !image) return alert("Wpisz opis lub dodaj zdjęcie!");
     
     setLoading(true);
-    setLastResponse('Czekam na odpowiedź...');
+    setLastResponse('Trwa analiza...');
     
     try {
-      // Używamy modelu gemini-3-flash-preview z Twoim limitem 1M TPM
+      // Używamy najbardziej stabilnego modelu 1.5 Flash z wymuszeniem JSON
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-3-flash-preview", 
+        model: "gemini-1.5-flash",
         generationConfig: { 
-          temperature: 0.1, 
-          maxOutputTokens: 300 
+          temperature: 0.1,
+          responseMimeType: "application/json" // Wymusza na modelu poprawny format JSON
         } 
       });
       
       const prompt = `Analiza posiłku: "${input}". 
-      Zwróć TYLKO czysty JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. 
-      Zero tekstu przed i po.`;
+      Zwróć TYLKO czysty JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}.`;
 
       let result;
       if (image) {
@@ -50,15 +49,10 @@ export default function MealTracker({ userId, onMealAdded }) {
       }
 
       const text = (await result.response).text().trim();
-      setLastResponse(text); // Zapisujemy surowy tekst do podglądu
+      setLastResponse(text);
 
-      // Wyciąganie JSON z odpowiedzi
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}') + 1;
-      
-      if (start === -1 || end === 0) throw new Error("Brak JSON w odpowiedzi");
-      
-      const data = JSON.parse(text.substring(start, end));
+      // Bezpieczne parsowanie
+      const data = JSON.parse(text);
 
       await supabase.from('meals').insert({
         user_id: userId,
@@ -72,12 +66,12 @@ export default function MealTracker({ userId, onMealAdded }) {
       alert(`Dodano: ${data.name}!`);
       setInput('');
       setImage(null);
-      setLastResponse(''); // Czyścimy po sukcesie
+      setLastResponse('');
       if (onMealAdded) onMealAdded();
       
     } catch (err) {
       console.error(err);
-      alert("Błąd formatu. Sprawdź 'Ostatnia odpowiedź AI' pod przyciskiem.");
+      alert("AI nie dokończyło odpowiedzi. Spróbuj opisać posiłek krócej lub użyć stabilniejszego modelu.");
     } finally {
       setLoading(false);
     }
@@ -109,9 +103,9 @@ export default function MealTracker({ userId, onMealAdded }) {
       </button>
 
       {lastResponse && (
-        <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
-          <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 5px 0' }}>Ostatnia odpowiedź AI:</p>
-          <code style={{ fontSize: '11px', display: 'block', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{lastResponse}</code>
+        <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f1f5f9', borderRadius: '10px' }}>
+          <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 5px 0' }}>Odpowiedź AI:</p>
+          <code style={{ fontSize: '11px', wordBreak: 'break-all' }}>{lastResponse}</code>
         </div>
       )}
     </div>
