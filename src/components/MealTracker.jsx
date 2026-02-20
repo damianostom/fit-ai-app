@@ -30,9 +30,9 @@ export default function MealTracker({ userId, onMealAdded }) {
         generationConfig: { temperature: 0.1, maxOutputTokens: 350 }
       });
       
-      const prompt = `Jesteś dietetykiem klinicznym. Przeanalizuj posiłek: "${input}". 
-      Zwróć WYŁĄCZNIE surowy obiekt JSON o formacie: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. 
-      Nie dodawaj żadnego tekstu przed ani po klamrach.`;
+      const prompt = `Jesteś dietetykiem. Przeanalizuj posiłek: "${input}". 
+      Zwróć TYLKO czysty obiekt JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. 
+      Zero tekstu przed i po klamrach.`;
 
       let result;
       if (image) {
@@ -45,13 +45,16 @@ export default function MealTracker({ userId, onMealAdded }) {
       const response = await result.response;
       let text = response.text();
 
-      // KLUCZOWA POPRAWKA: Wyciąganie JSON nawet jeśli AI dopisze tekst
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("AI nie zwróciło formatu JSON");
+      // PANCERNY MECHANIZM: Szukamy klamerek { } i wycinamy środek
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}') + 1;
       
-      const data = JSON.parse(jsonMatch[0]);
+      if (start === -1 || end === 0) throw new Error("Brak formatu JSON w odpowiedzi");
+      
+      const jsonString = text.substring(start, end);
+      const data = JSON.parse(jsonString);
 
-      await supabase.from('meals').insert({
+      const { error } = await supabase.from('meals').insert({
         user_id: userId,
         name: data.name || "Posiłek AI",
         calories: Math.round(data.calories || 0),
@@ -60,14 +63,16 @@ export default function MealTracker({ userId, onMealAdded }) {
         carbs: data.carbs || 0
       });
 
+      if (error) throw error;
+
       alert(`Dodano: ${data.name}!`);
       setInput('');
       setImage(null);
       if (onMealAdded) onMealAdded();
       
     } catch (err) {
-      console.error(err);
-      alert("Wystąpił błąd podczas analizy. Spróbuj opisać posiłek inaczej.");
+      console.error("Błąd szczegółowy:", err);
+      alert("AI miało problem z formatem danych. Spróbuj ponownie za chwilę.");
     } finally {
       setLoading(false);
     }
@@ -76,7 +81,7 @@ export default function MealTracker({ userId, onMealAdded }) {
   return (
     <div style={{ marginTop: '20px', padding: '20px', borderRadius: '20px', backgroundColor: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       <h4 style={{ marginTop: 0, marginBottom: '15px' }}>📸 Dodaj przez AI / Foto</h4>
-      <input type="text" placeholder="Opisz co dziś zjadłeś..." value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
+      <input type="text" placeholder="Opisz co zjadłeś..." value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
       <input type="file" accept="image/*" capture="environment" onChange={e => setImage(e.target.files[0])} style={{ margin: '10px 0', fontSize: '0.8em' }} />
       <button onClick={handleAnalyze} disabled={loading} style={btnStyle(loading)}>{loading ? 'Analizowanie...' : 'Wyślij do AI'}</button>
     </div>
