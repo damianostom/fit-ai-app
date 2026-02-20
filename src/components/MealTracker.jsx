@@ -30,10 +30,7 @@ export default function MealTracker({ userId, onMealAdded }) {
         generationConfig: { temperature: 0.1, maxOutputTokens: 350 }
       });
       
-      const prompt = `Jesteś dietetykiem. Przeanalizuj posiłek: "${input}". 
-      Jeśli jest zdjęcie, rozpoznaj co to jest. 
-      Zwróć WYŁĄCZNIE obiekt JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. 
-      Zero tekstu przed i po klamrach.`;
+      const prompt = `Jesteś dietetykiem. Przeanalizuj posiłek: "${input}". Jeśli jest zdjęcie, rozpoznaj co to jest. Zwróć WYŁĄCZNIE surowy obiekt JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. Zero tekstu przed i po klamrach.`;
 
       let result;
       if (image) {
@@ -46,9 +43,9 @@ export default function MealTracker({ userId, onMealAdded }) {
       const response = await result.response;
       let text = response.text();
 
-      // PANCERNY REGEX: Wyciąga czysty JSON nawet jeśli AI dopisze śmieci
+      // PANCERNY REGEX: Znajduje pierwszy { i ostatni } i wycina to co jest w środku
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Błąd formatu odpowiedzi AI");
+      if (!jsonMatch) throw new Error("AI nie zwróciło JSON");
       
       const data = JSON.parse(jsonMatch[0]);
 
@@ -68,7 +65,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       
     } catch (err) {
       console.error(err);
-      alert("AI miało problem z formatem. Spróbuj opisać posiłek inaczej.");
+      alert("AI miało problem z formatem. Spróbuj opisać posiłek prościej.");
     } finally {
       setLoading(false);
     }
@@ -77,25 +74,12 @@ export default function MealTracker({ userId, onMealAdded }) {
   return (
     <div style={{ marginTop: '20px', padding: '20px', borderRadius: '20px', backgroundColor: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       <h4 style={{ marginTop: 0, marginBottom: '15px' }}>📸 Dodaj przez AI / Foto</h4>
-      <input 
-        type="text" 
-        placeholder="Opisz posiłek..." 
-        value={input} 
-        onChange={e => setInput(e.target.value)} 
-        style={{ width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '10px' }} 
-      />
-      <input 
-        type="file" 
-        accept="image/*" 
-        capture="environment" 
-        onChange={e => setImage(e.target.files[0])} 
-        style={{ margin: '10px 0', fontSize: '0.8em' }} 
-      />
-      <button onClick={handleAnalyze} disabled={loading} style={btnStyle(loading)}>
-        {loading ? 'Analizowanie...' : 'Wyślij do AI'}
-      </button>
+      <input type="text" placeholder="Opisz posiłek..." value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
+      <input type="file" accept="image/*" capture="environment" onChange={e => setImage(e.target.files[0])} style={{ margin: '10px 0', fontSize: '0.8em' }} />
+      <button onClick={handleAnalyze} disabled={loading} style={btnStyle(loading)}>{loading ? 'Analizowanie...' : 'Wyślij do AI'}</button>
     </div>
   );
 }
 
+const inStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '10px' };
 const btnStyle = (loading) => ({ width: '100%', padding: '15px', backgroundColor: loading ? '#cbd5e1' : '#22c55e', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' });

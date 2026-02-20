@@ -69,21 +69,24 @@ export default function Dashboard({ session }) {
     setLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const prompt = `Jesteś dietetykiem. Oblicz zapotrzebowanie kcal dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg do ${profile.target_date}. Zwróć TYLKO liczbę (kcal).`;
+      // POPRAWKA PROMPTU: AI teraz wyliczy deficyt, a nie tylko utrzymanie
+      const prompt = `Jesteś dietetykiem sportowym. Oblicz zapotrzebowanie kaloryczne (deficyt na redukcję) dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność współczynnik ${profile.activity}. Cel: schudnąć do ${profile.target_weight}kg do ${profile.target_date}. Zwróć TYLKO liczbę całkowitą (np. 1850).`;
       
       const result = await model.generateContent(prompt);
       const aiKcal = parseInt((await result.response).text().trim().replace(/[^0-9]/g, ''));
 
       const { error } = await supabase.from('profiles').upsert({ 
         id: session.user.id, weight: w, height: h, age: a, gender: profile.gender,
-        activity_level: parseFloat(profile.activity), target_weight: parseFloat(profile.target_weight),
-        target_date: profile.target_date, daily_goal_kcal: aiKcal
+        activity_level: parseFloat(profile.activity), 
+        target_weight: parseFloat(profile.target_weight),
+        target_date: profile.target_date, 
+        daily_goal_kcal: aiKcal
       });
 
       if (!error) {
         setBmr(aiKcal);
         await supabase.from('weight_history').upsert({ user_id: session.user.id, weight: w, recorded_at: new Date().toISOString().split('T')[0] });
-        alert(`AI wyliczyło nowy cel: ${aiKcal} kcal`);
+        alert(`AI wyliczyło Twój cel z deficytem: ${aiKcal} kcal`);
         fetchWeightHistory();
       }
     } catch (err) {
