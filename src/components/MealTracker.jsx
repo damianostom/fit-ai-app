@@ -9,6 +9,7 @@ export default function MealTracker({ userId, onMealAdded }) {
   const [input, setInput] = useState('');
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [debugText, setDebugText] = useState(''); // NOWE: do podglądu odpowiedzi
 
   async function fileToGenerativePart(file) {
     const base64EncodedDataPromise = new Promise((resolve) => {
@@ -24,6 +25,7 @@ export default function MealTracker({ userId, onMealAdded }) {
     if (!input && !image) return alert("Wpisz opis lub dodaj zdjęcie!");
     
     setLoading(true);
+    setDebugText('Czekam na odpowiedź AI...');
     try {
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash",
@@ -31,8 +33,8 @@ export default function MealTracker({ userId, onMealAdded }) {
       });
       
       const prompt = `Jesteś dietetykiem. Przeanalizuj posiłek: "${input}". 
-      Zwróć TYLKO czysty obiekt JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. 
-      Zero tekstu przed i po klamrach.`;
+      MUSISZ zwrócić TYLKO I WYŁĄCZNIE obiekt JSON. Żadnego innego tekstu.
+      Format: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}`;
 
       let result;
       if (image) {
@@ -43,13 +45,17 @@ export default function MealTracker({ userId, onMealAdded }) {
       }
 
       const response = await result.response;
-      let text = response.text();
+      const text = response.text();
+      setDebugText(text); // Wyświetlamy to, co faktycznie przyszło
 
       // PANCERNY MECHANIZM: Szukamy klamerek { } i wycinamy środek
       const start = text.indexOf('{');
       const end = text.lastIndexOf('}') + 1;
       
-      if (start === -1 || end === 0) throw new Error("Brak formatu JSON w odpowiedzi");
+      if (start === -1 || end === 0) {
+        console.error("Surowa odpowiedź bez JSON:", text);
+        throw new Error("Brak formatu JSON w odpowiedzi AI");
+      }
       
       const jsonString = text.substring(start, end);
       const data = JSON.parse(jsonString);
@@ -68,11 +74,12 @@ export default function MealTracker({ userId, onMealAdded }) {
       alert(`Dodano: ${data.name}!`);
       setInput('');
       setImage(null);
+      setDebugText(''); // Czyścimy po sukcesie
       if (onMealAdded) onMealAdded();
       
     } catch (err) {
       console.error("Błąd szczegółowy:", err);
-      alert("AI miało problem z formatem danych. Spróbuj ponownie za chwilę.");
+      alert("AI nie zwróciło danych w poprawnym formacie. Sprawdź 'Podgląd AI' poniżej.");
     } finally {
       setLoading(false);
     }
@@ -84,6 +91,14 @@ export default function MealTracker({ userId, onMealAdded }) {
       <input type="text" placeholder="Opisz co zjadłeś..." value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
       <input type="file" accept="image/*" capture="environment" onChange={e => setImage(e.target.files[0])} style={{ margin: '10px 0', fontSize: '0.8em' }} />
       <button onClick={handleAnalyze} disabled={loading} style={btnStyle(loading)}>{loading ? 'Analizowanie...' : 'Wyślij do AI'}</button>
+      
+      {/* SEKCJA DEBUGOWANIA - TO NAM POWIE PRAWDĘ */}
+      {debugText && (
+        <div style={{ marginTop: '15px', padding: '10px', background: '#f8fafc', borderRadius: '10px', border: '1px dashed #cbd5e1' }}>
+          <p style={{ fontSize: '0.7em', color: '#64748b', margin: '0 0 5px 0' }}>Podgląd odpowiedzi AI:</p>
+          <code style={{ fontSize: '0.8em', whiteSpace: 'pre-wrap', color: '#1e293b' }}>{debugText}</code>
+        </div>
+      )}
     </div>
   );
 }

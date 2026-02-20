@@ -69,11 +69,7 @@ export default function Dashboard({ session }) {
     setLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      // Wymuszamy agresywną redukcję:
-      const prompt = `Jesteś rygorystycznym dietetykiem. Oblicz dzienny limit kalorii dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. 
-      CEL: Schudnąć do ${profile.target_weight}kg do ${profile.target_date}. 
-      Zastosuj bezpieczny, ale wyraźny deficyt kaloryczny (odejmij ok. 500 kcal od zapotrzebowania na utrzymanie). 
-      Zwróć TYLKO samą liczbę całkowitą.`;
+      const prompt = `Oblicz dzienny limit kalorii z DEFICYTEM na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć TYLKO liczbę całkowitą.`;
       
       const result = await model.generateContent(prompt);
       const aiKcal = parseInt((await result.response).text().trim().replace(/[^0-9]/g, ''));
@@ -87,7 +83,7 @@ export default function Dashboard({ session }) {
       if (!error) {
         setBmr(aiKcal);
         await supabase.from('weight_history').upsert({ user_id: session.user.id, weight: w, recorded_at: new Date().toISOString().split('T')[0] });
-        alert(`AI ustawiło nowy cel redukcyjny: ${aiKcal} kcal`);
+        alert(`AI wyliczyło plan: ${aiKcal} kcal`);
         fetchWeightHistory();
       }
     } catch (err) {
@@ -112,9 +108,9 @@ export default function Dashboard({ session }) {
 
       <section style={cardStyle}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
-        <div style={{ width: '100%', height: '180px' }}>
+        <div style={{ width: '100%', height: '220px', minHeight: '220px' }}> {/* DODANO minHeight */}
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={weightData}>
+            <LineChart data={weightData.length > 0 ? weightData : [{date: '', waga: 0}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="date" hide />
               <YAxis domain={['auto', 'auto']} hide />
