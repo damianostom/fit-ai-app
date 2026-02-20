@@ -30,7 +30,9 @@ export default function MealTracker({ userId, onMealAdded }) {
         generationConfig: { temperature: 0.1, maxOutputTokens: 350 }
       });
       
-      const prompt = `Jesteś dietetykiem. Przeanalizuj posiłek: "${input}". Jeśli jest zdjęcie, rozpoznaj co to jest. Zwróć WYŁĄCZNIE obiekt JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. Zero tekstu przed i po klamrach.`;
+      const prompt = `Jesteś dietetykiem klinicznym. Przeanalizuj posiłek: "${input}". 
+      Zwróć WYŁĄCZNIE surowy obiekt JSON o formacie: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. 
+      Nie dodawaj żadnego tekstu przed ani po klamrach.`;
 
       let result;
       if (image) {
@@ -43,9 +45,9 @@ export default function MealTracker({ userId, onMealAdded }) {
       const response = await result.response;
       let text = response.text();
 
-      // PANCERNY REGEX: Znajduje pierwszy { i ostatni } i wycina to co jest w środku
+      // KLUCZOWA POPRAWKA: Wyciąganie JSON nawet jeśli AI dopisze tekst
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("AI nie zwróciło JSON");
+      if (!jsonMatch) throw new Error("AI nie zwróciło formatu JSON");
       
       const data = JSON.parse(jsonMatch[0]);
 

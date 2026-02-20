@@ -69,8 +69,12 @@ export default function Dashboard({ session }) {
     setLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      // Wymuszamy na AI obliczenie deficytu kalorycznego
-      const prompt = `Jesteś dietetykiem klinicznym. Oblicz zapotrzebowanie kaloryczne z DEFICYTEM na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: schudnąć do ${profile.target_weight}kg do ${profile.target_date}. Podaj bezpieczną, ale skuteczną ilość kcal do spożycia dziennie. Zwróć TYLKO samą liczbę całkowitą.`;
+      // Wymuszamy agresywniejszy deficyt na redukcję
+      const prompt = `Jesteś rygorystycznym dietetykiem sportowym. 
+      Oblicz dzienny limit kalorii dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. 
+      CEL: Redukcja tkanki tłuszczowej do ${profile.target_weight}kg do ${profile.target_date}. 
+      Ustal deficyt ok. 500-700 kcal od całkowitej przemiany materii. 
+      Zwróć TYLKO liczbę całkowitą oznaczającą kcal.`;
       
       const result = await model.generateContent(prompt);
       const aiKcal = parseInt((await result.response).text().trim().replace(/[^0-9]/g, ''));
@@ -84,7 +88,7 @@ export default function Dashboard({ session }) {
       if (!error) {
         setBmr(aiKcal);
         await supabase.from('weight_history').upsert({ user_id: session.user.id, weight: w, recorded_at: new Date().toISOString().split('T')[0] });
-        alert(`AI wyliczyło Twój plan na redukcję: ${aiKcal} kcal`);
+        alert(`AI ustawiło limit na: ${aiKcal} kcal (Cel: Redukcja)`);
         fetchWeightHistory();
       }
     } catch (err) {
