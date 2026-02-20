@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MealTracker from '../components/MealTracker';
 
 export default function Dashboard({ session }) {
@@ -109,16 +109,15 @@ export default function Dashboard({ session }) {
           <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ border: 'none', background: '#f1f5f9', padding: '5px' }} />
         </div>
         <div style={{ width: '100%', height: '12px', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-          <div style={{ width: `${progressPercent}%`, height: '100%', background: todayKcal > safeBmr ? '#ef4444' : '#22c55e' }} />
+          <div style={{ width: `${progressPercent}%`, height: '100%', background: todayKcal > safeBmr ? '#ef4444' : '#22c55e', transition: 'width 0.5s' }} />
         </div>
       </header>
 
-      {/* WYKRES Z WYMUSZONYM MIN-HEIGHT I ASPECT RATIO */}
       <section style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '15px', border: '1px solid #e2e8f0', marginBottom: '15px' }}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Waga</h4>
-        <div style={{ width: '100%', height: 200, minHeight: 200 }}>
+        <div style={{ width: '100%', height: '220px', minHeight: '220px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={weightData.length ? weightData : [{waga: 0, date: ''}]}>
+            <LineChart data={weightData.length > 0 ? weightData : [{waga: 0, date: ''}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="date" hide />
               <YAxis domain={['auto', 'auto']} hide />
@@ -148,9 +147,10 @@ export default function Dashboard({ session }) {
           </div>
         ))}
       </div>
+      <button onClick={() => supabase.auth.signOut()} style={{ marginTop: '20px', width: '100%', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>Wyloguj</button>
     </div>
   );
 }
 
 const inStyle = { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' };
-const btnStyle = { width: '100%', marginTop: '10px', padding: '12px', backgroundColor: '#1e293b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' };
+const btnStyle = { width: '100%', marginTop: '10px', padding: '12px', backgroundColor: '#1e293b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' };
