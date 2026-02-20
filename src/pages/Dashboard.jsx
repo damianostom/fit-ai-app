@@ -69,24 +69,22 @@ export default function Dashboard({ session }) {
     setLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      // POPRAWKA PROMPTU: AI teraz wyliczy deficyt, a nie tylko utrzymanie
-      const prompt = `Jesteś dietetykiem sportowym. Oblicz zapotrzebowanie kaloryczne (deficyt na redukcję) dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność współczynnik ${profile.activity}. Cel: schudnąć do ${profile.target_weight}kg do ${profile.target_date}. Zwróć TYLKO liczbę całkowitą (np. 1850).`;
+      // Wymuszamy na AI obliczenie deficytu kalorycznego
+      const prompt = `Jesteś dietetykiem klinicznym. Oblicz zapotrzebowanie kaloryczne z DEFICYTEM na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: schudnąć do ${profile.target_weight}kg do ${profile.target_date}. Podaj bezpieczną, ale skuteczną ilość kcal do spożycia dziennie. Zwróć TYLKO samą liczbę całkowitą.`;
       
       const result = await model.generateContent(prompt);
       const aiKcal = parseInt((await result.response).text().trim().replace(/[^0-9]/g, ''));
 
       const { error } = await supabase.from('profiles').upsert({ 
         id: session.user.id, weight: w, height: h, age: a, gender: profile.gender,
-        activity_level: parseFloat(profile.activity), 
-        target_weight: parseFloat(profile.target_weight),
-        target_date: profile.target_date, 
-        daily_goal_kcal: aiKcal
+        activity_level: parseFloat(profile.activity), target_weight: parseFloat(profile.target_weight),
+        target_date: profile.target_date, daily_goal_kcal: aiKcal
       });
 
       if (!error) {
         setBmr(aiKcal);
         await supabase.from('weight_history').upsert({ user_id: session.user.id, weight: w, recorded_at: new Date().toISOString().split('T')[0] });
-        alert(`AI wyliczyło Twój cel z deficytem: ${aiKcal} kcal`);
+        alert(`AI wyliczyło Twój plan na redukcję: ${aiKcal} kcal`);
         fetchWeightHistory();
       }
     } catch (err) {
@@ -134,10 +132,7 @@ export default function Dashboard({ session }) {
           <input type="number" placeholder="Waga" value={profile.weight} onChange={e => setProfile({...profile, weight: e.target.value})} style={inputStyle} />
           <input type="number" placeholder="Wzrost" value={profile.height} onChange={e => setProfile({...profile, height: e.target.value})} style={inputStyle} />
           <select value={profile.activity} onChange={e => setProfile({...profile, activity: e.target.value})} style={{...inputStyle, gridColumn: 'span 2'}}>
-            <option value="1.2">Brak ruchu (1.2)</option>
-            <option value="1.375">Niska aktywność (1.3)</option>
-            <option value="1.5">Średnia aktywność (1.5)</option>
-            <option value="1.9">Dużo sportu (1.9)</option>
+            <option value="1.2">Brak ruchu (1.2)</option><option value="1.375">Niska aktywność (1.3)</option><option value="1.5">Średnia aktywność (1.5)</option><option value="1.9">Dużo sportu (1.9)</option>
           </select>
           <input type="number" placeholder="Cel kg" value={profile.target_weight} onChange={e => setProfile({...profile, target_weight: e.target.value})} style={inputStyle} />
           <input type="date" value={profile.target_date} onChange={e => setProfile({...profile, target_date: e.target.value})} style={inputStyle} />
