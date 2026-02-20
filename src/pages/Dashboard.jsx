@@ -72,16 +72,21 @@ export default function Dashboard({ session }) {
         generationConfig: { responseMimeType: "application/json" }
       });
       
-      const prompt = `Oblicz dzienny limit kcal i makroskładników (g) na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć JSON: {"kcal": 1800, "p": 150, "f": 60, "c": 165}`;
+      const prompt = `Oblicz dzienny limit kcal i makroskładników (g) dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć JSON: {"kcal": 1800, "p": 150, "f": 60, "c": 165}`;
       
       const result = await model.generateContent(prompt);
       const res = JSON.parse((await result.response).text());
 
       const { error } = await supabase.from('profiles').upsert({ 
-        id: session.user.id, weight: w, height: h, age: a, gender: profile.gender,
-        activity_level: parseFloat(profile.activity), target_weight: parseFloat(profile.target_weight),
-        target_date: profile.target_date, daily_goal_kcal: res.kcal,
-        target_protein: res.p, target_fat: res.f, target_carbs: res.c
+        id: session.user.id, 
+        weight: w, height: h, age: a, gender: profile.gender,
+        activity_level: parseFloat(profile.activity), 
+        target_weight: parseFloat(profile.target_weight),
+        target_date: profile.target_date, 
+        daily_goal_kcal: res.kcal,
+        target_protein: res.p, // Zapisujemy limity od AI
+        target_fat: res.f,
+        target_carbs: res.c
       });
 
       if (!error) {
@@ -122,7 +127,7 @@ export default function Dashboard({ session }) {
 
       <section style={cardStyle}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
-        <div style={{ width: '100%', height: '200px', minHeight: '200px' }}>
+        <div style={{ width: '100%', height: '180px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weightData.length > 0 ? weightData : [{date: '', waga: 0}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

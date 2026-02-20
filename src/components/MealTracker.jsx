@@ -19,18 +19,14 @@ export default function MealTracker({ userId, onMealAdded }) {
 
   const handleBarcodeDetected = (product) => {
     setShowScanner(false);
-    setInput(`${product.name} (100g: ${product.kcal}kcal, B:${product.p}g, T:${product.f}g, W:${product.c}g) - wpisz ilość w g: `);
-    alert(`Pobrano dane: ${product.name}`);
+    setInput(`${product.name} (100g: ${product.kcal}kcal, B:${product.p}g, T:${product.f}g, W:${product.c}g). Zjadłem gramów: `);
   };
 
   const handleAnalyze = async () => {
-    if (!input && !image) return alert("Opisz posiłek, dodaj foto lub użyj skanera!");
+    if (!input && !image) return alert("Opisz posiłek, dodaj foto lub skanuj!");
     setLoading(true);
     try {
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-3-flash-preview", 
-        generationConfig: { responseMimeType: "application/json" } 
-      });
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview", generationConfig: { responseMimeType: "application/json" } });
       const prompt = `Analiza posiłku: "${input}". Zwróć JSON: {"name": "nazwa", "kcal": 100, "p": 0, "f": 0, "c": 0}.`;
       
       let result = image ? await model.generateContent([prompt, await fileToGenerativePart(image)]) : await model.generateContent(prompt);
@@ -45,7 +41,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       setInput(''); setImage(null);
       if (onMealAdded) onMealAdded();
     } catch (err) {
-      alert("Błąd AI. Spróbuj opisać posiłek prościej.");
+      alert("Błąd AI.");
     } finally {
       setLoading(false);
     }
@@ -53,15 +49,15 @@ export default function MealTracker({ userId, onMealAdded }) {
 
   return (
     <div style={{ marginTop: '20px', padding: '20px', borderRadius: '20px', backgroundColor: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-      <h4 style={{ marginTop: 0, marginBottom: '15px' }}>🥗 Dodaj posiłek</h4>
+      <h4 style={{ marginTop: 0, marginBottom: '15px' }}>📸 Dodaj posiłek</h4>
       
       <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
         <button onClick={() => setShowScanner(!showScanner)} style={subBtnStyle}>
-          {showScanner ? '❌ Zamknij' : '█║ Skanuj'}
+          {showScanner ? 'Zamknij skaner' : '█║ Skanuj kod'}
         </button>
         <input type="file" accept="image/*" capture="environment" onChange={e => setImage(e.target.files[0])} style={{ display: 'none' }} id="img-up" />
         <label htmlFor="img-up" style={{...subBtnStyle, textAlign: 'center', cursor: 'pointer'}}>
-          {image ? '✅ Foto' : '📸 Foto'}
+          {image ? '✅ Foto wybrane' : 'Zrób zdjęcie 📸'}
         </label>
       </div>
 
@@ -73,6 +69,6 @@ export default function MealTracker({ userId, onMealAdded }) {
   );
 }
 
-const subBtnStyle = { flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9em', fontWeight: 'bold' };
+const subBtnStyle = { flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85em', fontWeight: '600' };
 const inStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '10px', fontFamily: 'inherit' };
 const btnStyle = (loading) => ({ width: '100%', padding: '15px', backgroundColor: loading ? '#cbd5e1' : '#22c55e', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' });
