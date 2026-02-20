@@ -64,7 +64,6 @@ export default function Dashboard({ session }) {
     const w = parseFloat(profile.weight);
     const h = parseFloat(profile.height);
     const a = parseInt(profile.age);
-    
     if (!w || !h || !a) return alert("Uzupełnij parametry ciała!");
     
     setLoading(true);
@@ -88,7 +87,7 @@ export default function Dashboard({ session }) {
         fetchWeightHistory();
       }
     } catch (err) {
-      alert("Błąd AI. Spróbuj zapisać ponownie.");
+      alert("Błąd AI podczas obliczeń.");
     } finally {
       setLoading(false);
     }
@@ -132,7 +131,10 @@ export default function Dashboard({ session }) {
           <input type="number" placeholder="Waga" value={profile.weight} onChange={e => setProfile({...profile, weight: e.target.value})} style={inputStyle} />
           <input type="number" placeholder="Wzrost" value={profile.height} onChange={e => setProfile({...profile, height: e.target.value})} style={inputStyle} />
           <select value={profile.activity} onChange={e => setProfile({...profile, activity: e.target.value})} style={{...inputStyle, gridColumn: 'span 2'}}>
-            <option value="1.2">Brak ruchu (1.2)</option><option value="1.5">Średnia aktywność (1.5)</option><option value="1.9">Dużo sportu (1.9)</option>
+            <option value="1.2">Brak ruchu (1.2)</option>
+            <option value="1.375">Niska aktywność (1.3)</option>
+            <option value="1.5">Średnia aktywność (1.5)</option>
+            <option value="1.9">Dużo sportu (1.9)</option>
           </select>
           <input type="number" placeholder="Cel kg" value={profile.target_weight} onChange={e => setProfile({...profile, target_weight: e.target.value})} style={inputStyle} />
           <input type="date" value={profile.target_date} onChange={e => setProfile({...profile, target_date: e.target.value})} style={inputStyle} />
@@ -157,7 +159,7 @@ export default function Dashboard({ session }) {
 
 const cardStyle = { backgroundColor: '#fff', padding: '20px', borderRadius: '20px', marginBottom: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' };
 const inputStyle = { padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: '100%', boxSizing: 'border-box' };
-const btnStyle = { gridColumn: 'span 2', padding: '12px', backgroundColor: '#1e293b', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold' };
+const btnStyle = { gridColumn: 'span 2', padding: '12px', backgroundColor: '#1e293b', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' };
 const progressBg = { width: '100%', height: '12px', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' };
 const progressFill = { height: '100%', transition: 'width 0.5s' };
 const dateStyle = { border: 'none', background: '#f1f5f9', padding: '8px', borderRadius: '8px' };
