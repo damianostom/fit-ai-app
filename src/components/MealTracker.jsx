@@ -9,7 +9,7 @@ export default function MealTracker({ userId, onMealAdded }) {
   const [input, setInput] = useState('');
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [debugText, setDebugText] = useState(''); // NOWE: do podglądu odpowiedzi
+  const [debugText, setDebugText] = useState('');
 
   async function fileToGenerativePart(file) {
     const base64EncodedDataPromise = new Promise((resolve) => {
@@ -25,16 +25,18 @@ export default function MealTracker({ userId, onMealAdded }) {
     if (!input && !image) return alert("Wpisz opis lub dodaj zdjęcie!");
     
     setLoading(true);
-    setDebugText('Czekam na odpowiedź AI...');
+    setDebugText('Analizowanie...');
     try {
+      // Używamy modelu gemini-2.0-flash, który masz w projekcie
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
-        generationConfig: { temperature: 0.1, maxOutputTokens: 350 }
+        model: "gemini-2.0-flash", 
+        generationConfig: { temperature: 0.1, maxOutputTokens: 200 }
       });
       
-      const prompt = `Jesteś dietetykiem. Przeanalizuj posiłek: "${input}". 
-      MUSISZ zwrócić TYLKO I WYŁĄCZNIE obiekt JSON. Żadnego innego tekstu.
-      Format: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}`;
+      // KRÓTSZY PROMPT = mniejsza szansa na ucięcie odpowiedzi
+      const prompt = `Analiza posiłku: "${input}". 
+      Zwróć TYLKO surowy JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}.
+      Nie pisz nic więcej.`;
 
       let result;
       if (image) {
@@ -45,41 +47,38 @@ export default function MealTracker({ userId, onMealAdded }) {
       }
 
       const response = await result.response;
-      const text = response.text();
-      setDebugText(text); // Wyświetlamy to, co faktycznie przyszło
+      let text = response.text().trim();
+      setDebugText(text);
 
-      // PANCERNY MECHANIZM: Szukamy klamerek { } i wycinamy środek
+      // Naprawa uciętych/błędnych odpowiedzi (szukanie JSON)
       const start = text.indexOf('{');
       const end = text.lastIndexOf('}') + 1;
       
-      if (start === -1 || end === 0) {
-        console.error("Surowa odpowiedź bez JSON:", text);
-        throw new Error("Brak formatu JSON w odpowiedzi AI");
+      if (start === -1) {
+        throw new Error("AI nie zwróciło poprawnego formatu.");
       }
       
       const jsonString = text.substring(start, end);
       const data = JSON.parse(jsonString);
 
-      const { error } = await supabase.from('meals').insert({
+      await supabase.from('meals').insert({
         user_id: userId,
-        name: data.name || "Posiłek AI",
+        name: data.name || "Posiłek",
         calories: Math.round(data.calories || 0),
         protein: data.protein || 0,
         fat: data.fat || 0,
         carbs: data.carbs || 0
       });
 
-      if (error) throw error;
-
       alert(`Dodano: ${data.name}!`);
       setInput('');
       setImage(null);
-      setDebugText(''); // Czyścimy po sukcesie
+      setDebugText('');
       if (onMealAdded) onMealAdded();
       
     } catch (err) {
-      console.error("Błąd szczegółowy:", err);
-      alert("AI nie zwróciło danych w poprawnym formacie. Sprawdź 'Podgląd AI' poniżej.");
+      console.error(err);
+      alert("Błąd analizy. Spróbuj opisać posiłek krócej (np. 'Zupa pomidorowa 300ml').");
     } finally {
       setLoading(false);
     }
@@ -88,15 +87,14 @@ export default function MealTracker({ userId, onMealAdded }) {
   return (
     <div style={{ marginTop: '20px', padding: '20px', borderRadius: '20px', backgroundColor: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       <h4 style={{ marginTop: 0, marginBottom: '15px' }}>📸 Dodaj przez AI / Foto</h4>
-      <input type="text" placeholder="Opisz co zjadłeś..." value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
+      <input type="text" placeholder="Opisz posiłek..." value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
       <input type="file" accept="image/*" capture="environment" onChange={e => setImage(e.target.files[0])} style={{ margin: '10px 0', fontSize: '0.8em' }} />
       <button onClick={handleAnalyze} disabled={loading} style={btnStyle(loading)}>{loading ? 'Analizowanie...' : 'Wyślij do AI'}</button>
       
-      {/* SEKCJA DEBUGOWANIA - TO NAM POWIE PRAWDĘ */}
       {debugText && (
-        <div style={{ marginTop: '15px', padding: '10px', background: '#f8fafc', borderRadius: '10px', border: '1px dashed #cbd5e1' }}>
-          <p style={{ fontSize: '0.7em', color: '#64748b', margin: '0 0 5px 0' }}>Podgląd odpowiedzi AI:</p>
-          <code style={{ fontSize: '0.8em', whiteSpace: 'pre-wrap', color: '#1e293b' }}>{debugText}</code>
+        <div style={{ marginTop: '10px', padding: '8px', background: '#f1f5f9', borderRadius: '8px', overflow: 'hidden' }}>
+          <p style={{ fontSize: '10px', margin: '0 0 5px 0', color: '#64748b' }}>Odpowiedź AI:</p>
+          <code style={{ fontSize: '11px', wordBreak: 'break-all' }}>{debugText}</code>
         </div>
       )}
     </div>
