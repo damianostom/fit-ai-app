@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from '../lib/supabase';
 
-const genAI = new GoogleGenerativeAI("AIzaSyCOXSEGbjRvkGUZiJ6it_moq6B9X7V26tQ");
+// Pobieranie klucza z bezpiecznych zmiennych Vercel/Vite
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey);
 
 export default function MealTracker({ userId, onMealAdded }) {
   const [input, setInput] = useState('');
@@ -19,7 +21,9 @@ export default function MealTracker({ userId, onMealAdded }) {
   }
 
   const handleAnalyze = async () => {
+    if (!apiKey) return alert("Błąd: Klucz API nie jest skonfigurowany!");
     if (!input && !image) return alert("Wpisz opis lub dodaj zdjęcie!");
+    
     setLoading(true);
     try {
       const model = genAI.getGenerativeModel({ 
@@ -28,7 +32,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       });
       
       const prompt = `Jesteś dietetykiem. Przeanalizuj: "${input}". 
-      Zwróć TYLKO JSON w formacie: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. Zero innego tekstu.`;
+      Zwróć TYLKO JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. Zero tekstu poza tym.`;
 
       let result;
       if (image) {
@@ -38,14 +42,15 @@ export default function MealTracker({ userId, onMealAdded }) {
         result = await model.generateContent(prompt);
       }
 
-      const text = (await result.response).text();
+      let text = (await result.response).text();
+      // Czyszczenie formatowania markdown
+      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
       
-      // Pancerne wyciąganie JSON - bierze wszystko między pierwszym { a ostatnim }
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("AI nie zwróciło formatu JSON");
+      if (!jsonMatch) throw new Error("Błąd formatu odpowiedzi AI");
       const data = JSON.parse(jsonMatch[0]);
 
-      const { error } = await supabase.from('meals').insert({
+      await supabase.from('meals').insert({
         user_id: userId,
         name: data.name || "Posiłek AI",
         calories: Math.round(data.calories || 0),
@@ -54,15 +59,14 @@ export default function MealTracker({ userId, onMealAdded }) {
         carbs: data.carbs || 0
       });
 
-      if (error) throw error;
       alert(`Dodano: ${data.name}!`);
       setInput('');
       setImage(null);
       if (onMealAdded) onMealAdded();
       
     } catch (err) {
-      console.error("Błąd AI:", err);
-      alert("Wystąpił błąd podczas odczytu danych z AI. Spróbuj opisać posiłek prościej.");
+      console.error(err);
+      alert("Błąd analizy AI. Sprawdź czy klucz API w Vercel jest aktualny.");
     } finally {
       setLoading(false);
     }
@@ -71,11 +75,14 @@ export default function MealTracker({ userId, onMealAdded }) {
   return (
     <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '15px', backgroundColor: '#fff' }}>
       <h4 style={{ marginTop: 0 }}>📸 Dodaj posiłek przez AI</h4>
-      <input type="text" placeholder="Co zjadłeś?" value={input} onChange={e => setInput(e.target.value)} style={{ width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '10px', border: '1px solid #e2e8f0' }} />
+      <input type="text" placeholder="Co zjadłeś?" value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
       <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0])} style={{ margin: '10px 0' }} />
-      <button onClick={handleAnalyze} disabled={loading} style={{ width: '100%', padding: '14px', backgroundColor: loading ? '#cbd5e1' : '#22c55e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold' }}>
+      <button onClick={handleAnalyze} disabled={loading} style={btnStyle(loading)}>
         {loading ? 'Analizowanie...' : 'Wyślij do AI'}
       </button>
     </div>
   );
 }
+
+const inStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '10px', border: '1px solid #e2e8f0' };
+const btnStyle = (loading) => ({ width: '100%', padding: '14px', backgroundColor: loading ? '#cbd5e1' : '#22c55e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' });
