@@ -68,7 +68,6 @@ export default function Dashboard({ session }) {
     
     setLoading(true);
     try {
-      // MODEL Z WYŻSZYM LIMITAM
       const model = genAI.getGenerativeModel({ 
         model: "gemini-3-flash-preview",
         generationConfig: { responseMimeType: "application/json" }
@@ -99,6 +98,11 @@ export default function Dashboard({ session }) {
     }
   };
 
+  // Obliczenia sumy makroskładników
+  const todayProtein = meals.reduce((sum, m) => sum + (m.protein || 0), 0);
+  const todayFat = meals.reduce((sum, m) => sum + (m.fat || 0), 0);
+  const todayCarbs = meals.reduce((sum, m) => sum + (m.carbs || 0), 0);
+
   const safeBmr = bmr || 2000;
   const progressPercent = Math.min((todayKcal / safeBmr) * 100, 100);
 
@@ -110,11 +114,18 @@ export default function Dashboard({ session }) {
           <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={dateStyle} />
         </div>
         <div style={progressBg}><div style={{ ...progressFill, width: `${progressPercent}%`, background: todayKcal > safeBmr ? '#ef4444' : '#22c55e' }} /></div>
+        
+        {/* Podsumowanie makroskładników w nagłówku */}
+        <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px', fontSize: '0.85em', color: '#64748b', fontWeight: '500' }}>
+          <span>B: <b style={{color: '#ef4444'}}>{todayProtein}g</b></span>
+          <span>T: <b style={{color: '#f59e0b'}}>{todayFat}g</b></span>
+          <span>W: <b style={{color: '#3b82f6'}}>{todayCarbs}g</b></span>
+        </div>
       </header>
 
       <section style={cardStyle}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
-        <div style={{ width: '100%', height: '220px', minHeight: '220px' }}>
+        <div style={{ width: '100%', height: '200px', minHeight: '200px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weightData.length > 0 ? weightData : [{date: '', waga: 0}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -147,14 +158,24 @@ export default function Dashboard({ session }) {
 
       <MealTracker userId={session.user.id} onMealAdded={fetchMealsForDate} />
 
+      {/* Lista posiłków z pełnymi makroskładnikami */}
       <div style={{ marginTop: '20px' }}>
         {meals.map(meal => (
           <div key={meal.id} style={mealItemStyle}>
-            <div><strong>{meal.name}</strong><br/><small>{meal.calories} kcal | B: {meal.protein}g</small></div>
+            <div style={{ flex: 1 }}>
+              <strong style={{ display: 'block', fontSize: '1.05em' }}>{meal.name}</strong>
+              <div style={{ fontSize: '0.85em', color: '#64748b', marginTop: '4px' }}>
+                {meal.calories} kcal | 
+                <span style={{ color: '#ef4444' }}> B: {meal.protein}g</span> | 
+                <span style={{ color: '#f59e0b' }}> T: {meal.fat}g</span> | 
+                <span style={{ color: '#3b82f6' }}> W: {meal.carbs}g</span>
+              </div>
+            </div>
             <button onClick={() => deleteMeal(meal.id)} style={deleteBtnStyle}>×</button>
           </div>
         ))}
       </div>
+      
       <button onClick={() => supabase.auth.signOut()} style={logoutStyle}>Wyloguj</button>
     </div>
   );
@@ -166,6 +187,6 @@ const btnStyle = { gridColumn: 'span 2', padding: '12px', backgroundColor: '#1e2
 const progressBg = { width: '100%', height: '12px', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' };
 const progressFill = { height: '100%', transition: 'width 0.5s' };
 const dateStyle = { border: 'none', background: '#f1f5f9', padding: '8px', borderRadius: '8px' };
-const mealItemStyle = { display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#fff', marginBottom: '8px', borderRadius: '12px', border: '1px solid #eee' };
-const deleteBtnStyle = { background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer' };
-const logoutStyle = { marginTop: '30px', width: '100%', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' };
+const mealItemStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px', background: '#fff', marginBottom: '10px', borderRadius: '15px', border: '1px solid #f1f5f9' };
+const deleteBtnStyle = { marginLeft: '10px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const logoutStyle = { marginTop: '30px', width: '100%', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', paddingBottom: '20px' };
