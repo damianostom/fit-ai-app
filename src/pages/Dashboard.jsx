@@ -72,7 +72,7 @@ export default function Dashboard({ session }) {
         generationConfig: { responseMimeType: "application/json" }
       });
       
-      const prompt = `Jesteś dietetykiem. Oblicz dzienny limit kalorii i makroskładników (w gramach) na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć JSON: {"kcal": 1800, "p": 150, "f": 60, "c": 165}`;
+      const prompt = `Oblicz dzienny limit kcal i makroskładników (g) na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć JSON: {"kcal": 1800, "p": 150, "f": 60, "c": 165}`;
       
       const result = await model.generateContent(prompt);
       const res = JSON.parse((await result.response).text());
@@ -87,7 +87,7 @@ export default function Dashboard({ session }) {
       if (!error) {
         setProfile(prev => ({...prev, daily_goal_kcal: res.kcal, target_protein: res.p, target_fat: res.f, target_carbs: res.c}));
         await supabase.from('weight_history').upsert({ user_id: session.user.id, weight: w, recorded_at: new Date().toISOString().split('T')[0] });
-        alert(`AI wyliczyło plan: ${res.kcal} kcal (B: ${res.p}g, T: ${res.f}g, W: ${res.c}g)`);
+        alert(`Plan zaktualizowany! Limit: ${res.kcal} kcal.`);
         fetchWeightHistory();
       }
     } catch (err) {
@@ -114,15 +114,15 @@ export default function Dashboard({ session }) {
         <div style={progressBg}><div style={{ ...progressFill, width: `${progressPercent}%`, background: todayKcal > profile.daily_goal_kcal ? '#ef4444' : '#22c55e' }} /></div>
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '15px', textAlign: 'center', fontSize: '0.85em' }}>
-          <div><span style={{color: '#ef4444', display: 'block'}}>Białko</span><strong>{todayProtein}/{profile.target_protein}g</strong></div>
-          <div><span style={{color: '#f59e0b', display: 'block'}}>Tłuszcz</span><strong>{todayFat}/{profile.target_fat}g</strong></div>
-          <div><span style={{color: '#3b82f6', display: 'block'}}>Węgle</span><strong>{todayCarbs}/{profile.target_carbs}g</strong></div>
+          <div><span style={{color: '#ef4444', display: 'block'}}>Białko</span><strong>{todayProtein} / {profile.target_protein}g</strong></div>
+          <div><span style={{color: '#f59e0b', display: 'block'}}>Tłuszcz</span><strong>{todayFat} / {profile.target_fat}g</strong></div>
+          <div><span style={{color: '#3b82f6', display: 'block'}}>Węgle</span><strong>{todayCarbs} / {profile.target_carbs}g</strong></div>
         </div>
       </header>
 
       <section style={cardStyle}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
-        <div style={{ width: '100%', height: '180px' }}>
+        <div style={{ width: '100%', height: '200px', minHeight: '200px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weightData.length > 0 ? weightData : [{date: '', waga: 0}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
