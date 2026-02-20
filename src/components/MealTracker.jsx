@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from '../lib/supabase';
 
-// Twój klucz API
+// Twój klucz API - upewnij się, że jest aktywny w Google AI Studio
 const genAI = new GoogleGenerativeAI("AIzaSyCOXSEGbjRvkGUZiJ6it_moq6B9X7V26tQ");
 
 export default function MealTracker({ userId, onMealAdded }) {
@@ -26,17 +26,17 @@ export default function MealTracker({ userId, onMealAdded }) {
     
     setLoading(true);
     try {
-      // ZMIANA: Używamy stabilnego i ultraszybkiego modelu gemini-2.5-flash
+      // Używamy stabilnego modelu 2.5 Flash, który wylistowałeś jako dostępny
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash",
         generationConfig: {
-          temperature: 0.1, // Minimalna kreatywność dla maksymalnej szybkości
-          maxOutputTokens: 150, // Krótka odpowiedź = szybka odpowiedź
+          temperature: 0.1, // Niska temperatura zwiększa precyzję JSON
+          maxOutputTokens: 200,
         }
       });
       
       const prompt = `Jesteś precyzyjnym dietetykiem. Przeanalizuj posiłek: "${input}". 
-      Zwróć dane WYŁĄCZNIE jako czysty obiekt JSON. Nie pisz żadnego innego tekstu.
+      Zwróć dane WYŁĄCZNIE jako czysty obiekt JSON. Nie pisz żadnego dodatkowego tekstu ani wstępu.
       Format: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}`;
 
       let result;
@@ -50,12 +50,18 @@ export default function MealTracker({ userId, onMealAdded }) {
       const response = await result.response;
       const text = response.text();
       
-      // Szybkie i bezpieczne wyciąganie JSONa za pomocą Regex
-      const jsonMatch = text.match(/\{.*\}/s);
-      if (!jsonMatch) throw new Error("AI nie zwróciło poprawnego formatu danych.");
-      
-      const data = JSON.parse(jsonMatch[0]);
+      // Bardziej odporne wyciąganie JSONa za pomocą wyrażenia regularnego
+      let data;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("AI nie zwróciło poprawnego formatu danych");
+        data = JSON.parse(jsonMatch[0]);
+      } catch (parseError) {
+        console.error("Błąd parsowania odpowiedzi AI:", text);
+        throw new Error("Wystąpił błąd podczas odczytu danych z AI.");
+      }
 
+      // Zapis do tabeli 'meals' w Supabase
       const { error } = await supabase.from('meals').insert({
         user_id: userId,
         name: data.name || "Posiłek AI",
@@ -70,41 +76,47 @@ export default function MealTracker({ userId, onMealAdded }) {
       alert(`Dodano do dziennika: ${data.name} (${data.calories} kcal)`);
       setInput('');
       setImage(null);
-      if (onMealAdded) onMealAdded();
+      if (onMealAdded) onMealAdded(); // Odświeżenie Dashboardu
       
     } catch (err) {
-      console.error("Szczegóły błędu:", err);
-      alert("Wystąpił błąd analizy. Spróbuj ponownie za chwilę.");
+      console.error("Szczegóły błędu analizy:", err);
+      alert(err.message || "Wystąpił błąd analizy. Spróbuj ponownie za chwilę.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '12px', backgroundColor: '#fff' }}>
-      <h4 style={{ marginTop: 0 }}>📸 Dodaj posiłek przez AI (Gemini 2.5 Flash)</h4>
+    <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '15px', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+      <h4 style={{ marginTop: 0, marginBottom: '15px' }}>📸 Dodaj posiłek przez AI</h4>
       <input 
         type="text" 
-        placeholder="Co dziś zjadłeś? (np. banan i 2 jajka)" 
+        placeholder="Co dziś zjadłeś? (np. 2 jajka sadzone i chleb)" 
         value={input} 
         onChange={e => setInput(e.target.value)} 
-        style={{ width: '100%', padding: '12px', marginBottom: '10px', boxSizing: 'border-box', borderRadius: '8px', border: '1px solid #ccc' }} 
+        style={{ width: '100%', padding: '12px', marginBottom: '10px', boxSizing: 'border-box', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '1rem' }} 
       />
       <div style={{ marginBottom: '10px' }}>
-        <input type="file" accept="image/*" onChange={e => setImage(e.target.files[0])} />
+        <input 
+          type="file" 
+          accept="image/*" 
+          onChange={e => setImage(e.target.files[0])} 
+          style={{ fontSize: '0.9rem', color: '#64748b' }}
+        />
       </div>
       <button 
         onClick={handleAnalyze} 
         disabled={loading} 
         style={{ 
           width: '100%', 
-          padding: '12px', 
-          backgroundColor: loading ? '#ccc' : '#22c55e', 
+          padding: '14px', 
+          backgroundColor: loading ? '#cbd5e1' : '#22c55e', 
           color: 'white', 
           border: 'none', 
-          borderRadius: '8px', 
+          borderRadius: '10px', 
           fontWeight: 'bold', 
-          cursor: loading ? 'not-allowed' : 'pointer' 
+          cursor: loading ? 'not-allowed' : 'pointer',
+          transition: 'background-color 0.2s'
         }}
       >
         {loading ? 'Analizowanie...' : 'Wyślij do AI'}

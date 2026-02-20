@@ -21,16 +21,19 @@ export default function Dashboard({ session }) {
 
   useEffect(() => {
     fetchMealsForDate();
-    // Możesz tu dodać zapisywanie wody w Supabase, na razie zostawiamy lokalnie
   }, [selectedDate]);
 
   const fetchProfile = async () => {
     const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
     if (data) {
       setProfile({
-        weight: data.weight || '', height: data.height || '', age: data.age || '',
-        gender: data.gender || 'male', activity: (data.activity_level || 1.2).toString(),
-        target_weight: data.target_weight || '', target_date: data.target_date || ''
+        weight: data.weight || '', 
+        height: data.height || '', 
+        age: data.age || '',
+        gender: data.gender || 'male', 
+        activity: (data.activity_level || 1.2).toString(),
+        target_weight: data.target_weight || '', 
+        target_date: data.target_date || ''
       });
       setBmr(data.daily_goal_kcal || 0);
     }
@@ -55,7 +58,7 @@ export default function Dashboard({ session }) {
     const w = parseFloat(profile.weight);
     const h = parseFloat(profile.height);
     const a = parseInt(profile.age);
-    if (!w || !h || !a) return 2000; // Domyślna wartość jeśli brak danych
+    if (!w || !h || !a) return 2000;
 
     const base = 10 * w + 6.25 * h - 5 * a;
     const maintenance = Math.round((profile.gender === 'male' ? base + 5 : base - 161) * parseFloat(profile.activity));
@@ -71,9 +74,16 @@ export default function Dashboard({ session }) {
 
   const saveAll = async () => {
     const newBmr = calculateDynamicCalories();
+    
+    // POPRAWKA: Mapujemy 'activity' z formularza na 'activity_level' w bazie danych
     const { error } = await supabase.from('profiles').upsert({ 
       id: session.user.id, 
-      ...profile, 
+      weight: parseFloat(profile.weight),
+      height: parseFloat(profile.height),
+      age: parseInt(profile.age),
+      gender: profile.gender,
+      target_weight: parseFloat(profile.target_weight),
+      target_date: profile.target_date,
       activity_level: parseFloat(profile.activity), 
       daily_goal_kcal: newBmr 
     });
@@ -82,7 +92,6 @@ export default function Dashboard({ session }) {
       alert("Błąd: " + error.message);
     } else {
       setBmr(newBmr);
-      // Dodaj wpis do historii wagi
       await supabase.from('weight_history').upsert({ 
         user_id: session.user.id, 
         weight: parseFloat(profile.weight), 
@@ -94,15 +103,12 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // BEZPIECZNIKI DLA UI
   const safeBmr = bmr || 2000;
   const progressPercent = Math.min((todayKcal / safeBmr) * 100, 100);
   const caloriesLeft = safeBmr - todayKcal;
 
   return (
     <div style={{ padding: '15px', maxWidth: '600px', margin: '0 auto', fontFamily: '-apple-system, sans-serif', color: '#1e293b' }}>
-      
-      {/* NAGŁÓWEK Z PASKIEM POSTĘPU */}
       <header style={cardStyle({ bg: '#fff', border: '#e2e8f0' })}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
           <h2 style={{ margin: 0 }}>{todayKcal} <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'normal' }}>/ {safeBmr} kcal</span></h2>
@@ -116,7 +122,6 @@ export default function Dashboard({ session }) {
         </p>
       </header>
 
-      {/* LICZNIK WODY */}
       <section style={cardStyle({ bg: '#eff6ff', border: '#3b82f6' })}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <strong style={{ color: '#1d4ed8' }}>💧 Nawodnienie</strong>
@@ -128,7 +133,6 @@ export default function Dashboard({ session }) {
         </div>
       </section>
 
-      {/* WYKRES WAGI */}
       <section style={cardStyle({ bg: '#fff', border: '#e2e8f0' })}>
         <h4 style={{ marginTop: 0, marginBottom: '15px' }}>Trend wagi</h4>
         <div style={{ width: '100%', height: 180 }}>
@@ -147,7 +151,6 @@ export default function Dashboard({ session }) {
         </div>
       </section>
 
-      {/* PROFIL I KONFIGURACJA */}
       <section style={cardStyle({ bg: '#fff', border: '#e2e8f0' })}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <select value={profile.gender} onChange={e => setProfile({...profile, gender: e.target.value})} style={inputStyle}>
@@ -171,7 +174,6 @@ export default function Dashboard({ session }) {
 
       <MealTracker userId={session.user.id} onMealAdded={fetchMealsForDate} />
 
-      {/* LISTA POSIŁKÓW */}
       <div style={{ marginTop: '20px' }}>
         <h4 style={{ marginBottom: '10px' }}>Dziennik posiłków</h4>
         {meals.length === 0 ? (
@@ -195,7 +197,6 @@ export default function Dashboard({ session }) {
   );
 }
 
-// STYLE CSS-IN-JS
 const cardStyle = ({ bg, border }) => ({ backgroundColor: bg, padding: '15px', borderRadius: '18px', border: `1px solid ${border}`, marginBottom: '15px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' });
 const inputStyle = { padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.9rem', width: '100%', boxSizing: 'border-box', marginTop: '4px' };
 const dateInputStyle = { border: 'none', background: '#f1f5f9', padding: '8px', borderRadius: '10px', fontSize: '0.8rem', outline: 'none' };
