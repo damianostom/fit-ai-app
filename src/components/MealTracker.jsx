@@ -22,18 +22,18 @@ export default function MealTracker({ userId, onMealAdded }) {
 
   const handleAnalyze = async () => {
     if (!apiKey) return alert("Błąd klucza API!");
-    if (!input && !image) return alert("Wpisz opis lub dodaj zdjęcie!");
+    if (!input && !image) return alert("Opisz posiłek lub dodaj zdjęcie!");
     
     setLoading(true);
-    setLastResponse('Analizowanie przez Gemini 2.5...');
+    setLastResponse('Trwa analiza przez Gemini 3...');
     
     try {
-      // Używamy modelu 2.5 Flash z Twojej listy - najstabilniejszy dla JSON
+      // PRZEŁĄCZENIE NA MODEL Z WYŻSZYM LIMITAM (15 RPM / 1M TPM)
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
+        model: "gemini-3-flash-preview",
         generationConfig: { 
           temperature: 0.1,
-          responseMimeType: "application/json" // Wymusza poprawny JSON
+          responseMimeType: "application/json" 
         } 
       });
       
@@ -55,7 +55,7 @@ export default function MealTracker({ userId, onMealAdded }) {
 
       await supabase.from('meals').insert({
         user_id: userId,
-        name: data.name || "Posiłek",
+        name: data.name || "Posiłek AI",
         calories: Math.round(data.calories || 0),
         protein: data.protein || 0,
         fat: data.fat || 0,
@@ -70,7 +70,11 @@ export default function MealTracker({ userId, onMealAdded }) {
       
     } catch (err) {
       console.error(err);
-      alert("Wystąpił błąd formatu. Spróbuj opisać posiłek inaczej.");
+      if (err.message.includes('429')) {
+        alert("Osiągnięto limit zapytań. Odczekaj minutę.");
+      } else {
+        alert("Wystąpił błąd formatu AI. Spróbuj opisać posiłek inaczej.");
+      }
     } finally {
       setLoading(false);
     }
@@ -79,31 +83,13 @@ export default function MealTracker({ userId, onMealAdded }) {
   return (
     <div style={{ marginTop: '20px', padding: '20px', borderRadius: '20px', backgroundColor: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       <h4 style={{ marginTop: 0, marginBottom: '15px' }}>📸 Dodaj przez AI / Foto</h4>
-      <input 
-        type="text" 
-        placeholder="Opisz co zjadłeś..." 
-        value={input} 
-        onChange={e => setInput(e.target.value)} 
-        style={inStyle} 
-      />
-      <input 
-        type="file" 
-        accept="image/*" 
-        capture="environment" 
-        onChange={e => setImage(e.target.files[0])} 
-        style={{ margin: '10px 0', fontSize: '0.8em' }} 
-      />
-      <button 
-        onClick={handleAnalyze} 
-        disabled={loading} 
-        style={btnStyle(loading)}
-      >
-        {loading ? 'Analizowanie...' : 'Wyślij do AI'}
-      </button>
+      <input type="text" placeholder="Opisz co dziś zjadłeś..." value={input} onChange={e => setInput(e.target.value)} style={inStyle} />
+      <input type="file" accept="image/*" capture="environment" onChange={e => setImage(e.target.files[0])} style={{ margin: '10px 0', fontSize: '0.8em' }} />
+      <button onClick={handleAnalyze} disabled={loading} style={btnStyle(loading)}>{loading ? 'Analizowanie...' : 'Wyślij do AI'}</button>
 
       {lastResponse && (
         <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f1f5f9', borderRadius: '10px' }}>
-          <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 5px 0' }}>Ostatnia odpowiedź AI:</p>
+          <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 5px 0' }}>Odpowiedź AI:</p>
           <code style={{ fontSize: '11px', wordBreak: 'break-all' }}>{lastResponse}</code>
         </div>
       )}

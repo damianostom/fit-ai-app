@@ -68,12 +68,13 @@ export default function Dashboard({ session }) {
     
     setLoading(true);
     try {
+      // MODEL Z WYŻSZYM LIMITAM
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
+        model: "gemini-3-flash-preview",
         generationConfig: { responseMimeType: "application/json" }
       });
       
-      const prompt = `Oblicz dzienny limit kalorii z DEFICYTEM na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć JSON: {"kcal": 1800}`;
+      const prompt = `Jesteś dietetykiem. Oblicz dzienny limit kalorii z DEFICYTEM na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć JSON: {"kcal": 1800}`;
       
       const result = await model.generateContent(prompt);
       const resData = JSON.parse((await result.response).text());
@@ -111,7 +112,6 @@ export default function Dashboard({ session }) {
         <div style={progressBg}><div style={{ ...progressFill, width: `${progressPercent}%`, background: todayKcal > safeBmr ? '#ef4444' : '#22c55e' }} /></div>
       </header>
 
-      {/* WYKRES Z POPRAWIONYMI WYMIARAMI */}
       <section style={cardStyle}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
         <div style={{ width: '100%', height: '220px', minHeight: '220px' }}>
