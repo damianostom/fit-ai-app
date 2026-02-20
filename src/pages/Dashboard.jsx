@@ -48,7 +48,7 @@ export default function Dashboard({ session }) {
   const fetchMealsForDate = async () => {
     const start = `${selectedDate}T00:00:00.000Z`;
     const end = `${selectedDate}T23:59:59.999Z`;
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('meals')
       .select('*')
       .eq('user_id', session.user.id)
@@ -56,27 +56,15 @@ export default function Dashboard({ session }) {
       .lte('created_at', end)
       .order('created_at', { ascending: false });
     
-    if (error) console.error("Błąd pobierania posiłków:", error);
     if (data) {
       setMeals(data);
       setTodayKcal(data.reduce((sum, m) => sum + (m.calories || 0), 0));
     }
   };
 
-  // NOWA FUNKCJA USUWANIA
   const deleteMeal = async (mealId) => {
-    const { error } = await supabase
-      .from('meals')
-      .delete()
-      .eq('id', mealId)
-      .eq('user_id', session.user.id); // Dodatkowe zabezpieczenie
-
-    if (error) {
-      alert("Nie udało się usunąć posiłku.");
-    } else {
-      // Odśwież listę po usunięciu
-      fetchMealsForDate();
-    }
+    const { error } = await supabase.from('meals').delete().eq('id', mealId).eq('user_id', session.user.id);
+    if (!error) fetchMealsForDate();
   };
 
   const saveAll = async () => {
@@ -90,6 +78,8 @@ export default function Dashboard({ session }) {
       id: session.user.id, 
       weight: w, height: h, age: a, gender: profile.gender,
       activity_level: parseFloat(profile.activity), 
+      target_weight: parseFloat(profile.target_weight) || 0,
+      target_date: profile.target_date,
       daily_goal_kcal: maintenance || 2000
     });
 
@@ -99,7 +89,7 @@ export default function Dashboard({ session }) {
       setBmr(maintenance);
       await supabase.from('weight_history').upsert({ user_id: session.user.id, weight: w, recorded_at: new Date().toISOString().split('T')[0] });
       fetchWeightHistory();
-      alert("Zaktualizowano dane!");
+      alert("Dane profilu zostały zaktualizowane!");
     }
   };
 
@@ -108,6 +98,7 @@ export default function Dashboard({ session }) {
 
   return (
     <div style={{ padding: '15px', maxWidth: '600px', margin: '0 auto', fontFamily: 'sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+      {/* NAGŁÓWEK KALORII */}
       <header style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '20px', marginBottom: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
           <h2 style={{ margin: 0 }}>{todayKcal} / {safeBmr} kcal</h2>
@@ -118,57 +109,90 @@ export default function Dashboard({ session }) {
         </div>
       </header>
 
+      {/* WYKRES WAGI */}
       <section style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '20px', marginBottom: '15px' }}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
-        <div style={{ width: '100%', height: '220px', minHeight: '220px' }}>
+        <div style={{ width: '100%', height: '180px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weightData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="date" hide />
               <YAxis domain={['auto', 'auto']} hide />
               <Tooltip />
-              <Line type="monotone" dataKey="waga" stroke="#22c55e" strokeWidth={4} dot={{ r: 4 }} isAnimationActive={false} />
+              <Line type="monotone" dataKey="waga" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </section>
 
+      {/* FORMULARZ PROFILU (Przywrócony) */}
+      <section style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '20px', marginBottom: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <h4 style={{ marginTop: 0, marginBottom: '15px' }}>Parametry sylwetki</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div>
+            <label style={labelStyle}>Płeć</label>
+            <select value={profile.gender} onChange={e => setProfile({...profile, gender: e.target.value})} style={inputStyle}>
+              <option value="male">Mężczyzna</option>
+              <option value="female">Kobieta</option>
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Wiek</label>
+            <input type="number" placeholder="Wiek" value={profile.age} onChange={e => setProfile({...profile, age: e.target.value})} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Waga (kg)</label>
+            <input type="number" placeholder="Waga" value={profile.weight} onChange={e => setProfile({...profile, weight: e.target.value})} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Wzrost (cm)</label>
+            <input type="number" placeholder="Wzrost" value={profile.height} onChange={e => setProfile({...profile, height: e.target.value})} style={inputStyle} />
+          </div>
+          <div style={{ gridColumn: 'span 2' }}>
+            <label style={labelStyle}>Aktywność</label>
+            <select value={profile.activity} onChange={e => setProfile({...profile, activity: e.target.value})} style={inputStyle}>
+              <option value="1.2">Brak ruchu (Siedzący)</option>
+              <option value="1.375">Niska aktywność (1-2 treningi)</option>
+              <option value="1.55">Średnia aktywność (3-4 treningi)</option>
+              <option value="1.725">Wysoka aktywność (Codziennie)</option>
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Cel wagi (kg)</label>
+            <input type="number" placeholder="Cel" value={profile.target_weight} onChange={e => setProfile({...profile, target_weight: e.target.value})} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Data celu</label>
+            <input type="date" value={profile.target_date} onChange={e => setProfile({...profile, target_date: e.target.value})} style={inputStyle} />
+          </div>
+          <button onClick={saveAll} style={{ gridColumn: 'span 2', padding: '12px', backgroundColor: '#1e293b', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', marginTop: '10px' }}>
+            Aktualizuj Plan i Cel
+          </button>
+        </div>
+      </section>
+
+      {/* KOMPONENT DODAWANIA POSIŁKÓW (AI + FOTO) */}
       <MealTracker userId={session.user.id} onMealAdded={fetchMealsForDate} />
 
-      {/* LISTA POSIŁKÓW Z POPRAWIONYM USUWANIEM */}
+      {/* LISTA POSIŁKÓW */}
       <div style={{ marginTop: '20px' }}>
         {meals.map(meal => (
-          <div key={meal.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#fff', marginBottom: '8px', borderRadius: '12px', border: '1px solid #eee', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <div key={meal.id} style={mealItemStyle}>
             <div>
-              <span style={{ fontWeight: '500', display: 'block' }}>{meal.name}</span>
-              <span style={{ fontSize: '0.9em', color: '#64748b' }}>{meal.calories} kcal | B: {meal.protein}g | T: {meal.fat}g | W: {meal.carbs}g</span>
+              <span style={{ fontWeight: '600', display: 'block' }}>{meal.name}</span>
+              <span style={{ fontSize: '0.85em', color: '#64748b' }}>{meal.calories} kcal | B: {meal.protein}g | T: {meal.fat}g | W: {meal.carbs}g</span>
             </div>
-            <button 
-              onClick={() => deleteMeal(meal.id)} 
-              style={{ 
-                color: '#ef4444', 
-                border: 'none', 
-                background: '#fee2e2', 
-                borderRadius: '50%', 
-                width: '32px', 
-                height: '32px', 
-                fontSize: '18px', 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginLeft: '10px'
-              }}
-              title="Usuń"
-            >
-              ×
-            </button>
+            <button onClick={() => deleteMeal(meal.id)} style={deleteButtonStyle}>×</button>
           </div>
         ))}
-        {meals.length === 0 && <p style={{ textAlign: 'center', color: '#94a3b8', marginTop: '20px' }}>Brak posiłków w tym dniu.</p>}
       </div>
-      
-      <button onClick={() => supabase.auth.signOut()} style={{ marginTop: '30px', width: '100%', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9em' }}>Wyloguj się</button>
+
+      <button onClick={() => supabase.auth.signOut()} style={{ marginTop: '40px', width: '100%', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>Wyloguj się</button>
     </div>
   );
 }
+
+const labelStyle = { display: 'block', fontSize: '0.75em', color: '#64748b', marginBottom: '4px', marginLeft: '4px' };
+const inputStyle = { padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', width: '100%', boxSizing: 'border-box', fontSize: '0.9em' };
+const mealItemStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#fff', marginBottom: '8px', borderRadius: '12px', border: '1px solid #eee' };
+const deleteButtonStyle = { color: '#ef4444', border: 'none', background: '#fee2e2', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', cursor: 'pointer' };
