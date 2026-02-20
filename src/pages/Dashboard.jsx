@@ -68,11 +68,16 @@ export default function Dashboard({ session }) {
     
     setLoading(true);
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const prompt = `Oblicz dzienny limit kalorii z DEFICYTEM na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć TYLKO liczbę całkowitą.`;
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash",
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      
+      const prompt = `Oblicz dzienny limit kalorii z DEFICYTEM na redukcję dla: ${profile.gender}, ${w}kg, ${h}cm, ${a}lat, aktywność ${profile.activity}. Cel: ${profile.target_weight}kg. Zwróć JSON: {"kcal": 1800}`;
       
       const result = await model.generateContent(prompt);
-      const aiKcal = parseInt((await result.response).text().trim().replace(/[^0-9]/g, ''));
+      const resData = JSON.parse((await result.response).text());
+      const aiKcal = resData.kcal;
 
       const { error } = await supabase.from('profiles').upsert({ 
         id: session.user.id, weight: w, height: h, age: a, gender: profile.gender,
@@ -106,9 +111,10 @@ export default function Dashboard({ session }) {
         <div style={progressBg}><div style={{ ...progressFill, width: `${progressPercent}%`, background: todayKcal > safeBmr ? '#ef4444' : '#22c55e' }} /></div>
       </header>
 
+      {/* WYKRES Z POPRAWIONYMI WYMIARAMI */}
       <section style={cardStyle}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
-        <div style={{ width: '100%', height: '220px', minHeight: '220px' }}> {/* DODANO minHeight */}
+        <div style={{ width: '100%', height: '220px', minHeight: '220px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weightData.length > 0 ? weightData : [{date: '', waga: 0}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

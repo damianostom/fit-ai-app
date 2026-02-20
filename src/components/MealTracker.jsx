@@ -25,20 +25,20 @@ export default function MealTracker({ userId, onMealAdded }) {
     if (!input && !image) return alert("Wpisz opis lub dodaj zdjęcie!");
     
     setLoading(true);
-    setLastResponse('Trwa analiza...');
+    setLastResponse('Analizowanie przez Gemini 2.5...');
     
     try {
-      // Używamy najbardziej stabilnego modelu 1.5 Flash z wymuszeniem JSON
+      // Używamy modelu 2.5 Flash z Twojej listy - najstabilniejszy dla JSON
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-flash",
         generationConfig: { 
           temperature: 0.1,
-          responseMimeType: "application/json" // Wymusza na modelu poprawny format JSON
+          responseMimeType: "application/json" // Wymusza poprawny JSON
         } 
       });
       
       const prompt = `Analiza posiłku: "${input}". 
-      Zwróć TYLKO czysty JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}.`;
+      Zwróć TYLKO JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}.`;
 
       let result;
       if (image) {
@@ -51,7 +51,6 @@ export default function MealTracker({ userId, onMealAdded }) {
       const text = (await result.response).text().trim();
       setLastResponse(text);
 
-      // Bezpieczne parsowanie
       const data = JSON.parse(text);
 
       await supabase.from('meals').insert({
@@ -71,7 +70,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       
     } catch (err) {
       console.error(err);
-      alert("AI nie dokończyło odpowiedzi. Spróbuj opisać posiłek krócej lub użyć stabilniejszego modelu.");
+      alert("Wystąpił błąd formatu. Spróbuj opisać posiłek inaczej.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +103,7 @@ export default function MealTracker({ userId, onMealAdded }) {
 
       {lastResponse && (
         <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f1f5f9', borderRadius: '10px' }}>
-          <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 5px 0' }}>Odpowiedź AI:</p>
+          <p style={{ fontSize: '10px', color: '#64748b', margin: '0 0 5px 0' }}>Ostatnia odpowiedź AI:</p>
           <code style={{ fontSize: '11px', wordBreak: 'break-all' }}>{lastResponse}</code>
         </div>
       )}
