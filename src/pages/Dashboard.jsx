@@ -131,7 +131,7 @@ export default function Dashboard({ session }) {
       <section style={cardStyle}>
         <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Trend wagi</h4>
         <div style={{ width: '100%', height: '180px', minHeight: '180px' }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={200}>
             <LineChart data={weightData.length > 0 ? weightData : [{date: '', waga: 0}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="date" hide /><YAxis domain={['auto', 'auto']} hide /><Tooltip />
