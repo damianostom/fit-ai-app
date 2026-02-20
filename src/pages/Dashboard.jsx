@@ -12,7 +12,6 @@ export default function Dashboard({ session }) {
   const [weightData, setWeightData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [todayKcal, setTodayKcal] = useState(0);
-  const [water, setWater] = useState(0);
 
   useEffect(() => {
     fetchProfile();
@@ -41,7 +40,11 @@ export default function Dashboard({ session }) {
 
   const fetchWeightHistory = async () => {
     const { data } = await supabase.from('weight_history').select('weight, recorded_at').eq('user_id', session.user.id).order('recorded_at', { ascending: true });
-    if (data) setWeightData(data.map(d => ({ date: d.recorded_at, waga: d.weight })));
+    if (data && data.length > 0) {
+      setWeightData(data.map(d => ({ date: d.recorded_at, waga: d.weight })));
+    } else {
+      setWeightData([]);
+    }
   };
 
   const fetchMealsForDate = async () => {
@@ -91,7 +94,7 @@ export default function Dashboard({ session }) {
         recorded_at: new Date().toISOString().split('T')[0] 
       });
       fetchWeightHistory();
-      alert("Zapisano dane!");
+      alert("Zapisano!");
     }
   };
 
@@ -100,37 +103,37 @@ export default function Dashboard({ session }) {
 
   return (
     <div style={{ padding: '15px', maxWidth: '600px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      <header style={cardStyle({ bg: '#fff', border: '#e2e8f0' })}>
+      <header style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '15px', border: '1px solid #e2e8f0', marginBottom: '15px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
           <h2 style={{ margin: 0 }}>{todayKcal} / {safeBmr} kcal</h2>
           <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ border: 'none', background: '#f1f5f9', padding: '5px' }} />
         </div>
         <div style={{ width: '100%', height: '12px', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-          <div style={{ width: `${progressPercent}%`, height: '100%', background: todayKcal > safeBmr ? '#ef4444' : '#22c55e', transition: 'width 0.5s' }} />
+          <div style={{ width: `${progressPercent}%`, height: '100%', background: todayKcal > safeBmr ? '#ef4444' : '#22c55e' }} />
         </div>
       </header>
 
-      {/* NAPRAWA WYKRESU - DODANA SZTYWNA WYSOKOŚĆ */}
-      <section style={cardStyle({ bg: '#fff', border: '#e2e8f0' })}>
-        <h4 style={{ marginTop: 0, marginBottom: '15px' }}>Trend wagi</h4>
-        <div style={{ width: '100%', height: '200px' }}>
+      {/* WYKRES Z WYMUSZONYM MIN-HEIGHT I ASPECT RATIO */}
+      <section style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '15px', border: '1px solid #e2e8f0', marginBottom: '15px' }}>
+        <h4 style={{ marginTop: 0, marginBottom: '10px' }}>Waga</h4>
+        <div style={{ width: '100%', height: 200, minHeight: 200 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={weightData}>
+            <LineChart data={weightData.length ? weightData : [{waga: 0, date: ''}]}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="date" hide />
-              <YAxis domain={['dataMin - 1', 'dataMax + 1']} hide />
+              <YAxis domain={['auto', 'auto']} hide />
               <Tooltip />
-              <Line type="monotone" dataKey="waga" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="waga" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </section>
 
-      <section style={cardStyle({ bg: '#fff', border: '#e2e8f0' })}>
+      <section style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '15px', border: '1px solid #e2e8f0', marginBottom: '15px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <input type="number" placeholder="Waga" value={profile.weight} onChange={e => setProfile({...profile, weight: e.target.value})} style={inputStyle} />
-          <input type="number" placeholder="Cel kg" value={profile.target_weight} onChange={e => setProfile({...profile, target_weight: e.target.value})} style={inputStyle} />
-          <input type="date" value={profile.target_date} onChange={e => setProfile({...profile, target_date: e.target.value})} style={{...inputStyle, gridColumn: 'span 2'}} />
+          <input type="number" placeholder="Waga" value={profile.weight} onChange={e => setProfile({...profile, weight: e.target.value})} style={inStyle} />
+          <input type="number" placeholder="Cel kg" value={profile.target_weight} onChange={e => setProfile({...profile, target_weight: e.target.value})} style={inStyle} />
+          <input type="date" value={profile.target_date} onChange={e => setProfile({...profile, target_date: e.target.value})} style={{...inStyle, gridColumn: 'span 2'}} />
         </div>
         <button onClick={saveAll} style={btnStyle}>Aktualizuj Plan</button>
       </section>
@@ -149,6 +152,5 @@ export default function Dashboard({ session }) {
   );
 }
 
-const cardStyle = ({ bg, border }) => ({ backgroundColor: bg, padding: '15px', borderRadius: '15px', border: `1px solid ${border}`, marginBottom: '15px' });
-const inputStyle = { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' };
+const inStyle = { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' };
 const btnStyle = { width: '100%', marginTop: '10px', padding: '12px', backgroundColor: '#1e293b', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' };

@@ -20,18 +20,19 @@ export default function MealTracker({ userId, onMealAdded }) {
   }
 
   const handleAnalyze = async () => {
-    if (!apiKey) return alert("Brak klucza API!");
-    if (!input && !image) return alert("Wpisz opis!");
+    if (!apiKey) return alert("Błąd klucza!");
+    if (!input && !image) return alert("Wpisz coś!");
     
     setLoading(true);
     try {
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
-        generationConfig: { temperature: 0.1, maxOutputTokens: 250 }
+        model: "gemini-2.0-flash", 
+        generationConfig: { temperature: 0.1 } 
       });
       
-      const prompt = `Jesteś dietetykiem. Przeanalizuj: "${input}". 
-      Zwróć TYLKO JSON: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}. Bez markdown, bez tekstu.`;
+      const prompt = `Przeanalizuj posiłek: "${input}". 
+      Zwróć TYLKO I WYŁĄCZNIE surowy obiekt JSON w jednej linii, bez tekstu przed i po. 
+      Format: {"name": "nazwa", "calories": 100, "protein": 0, "fat": 0, "carbs": 0}`;
 
       let result;
       if (image) {
@@ -42,14 +43,17 @@ export default function MealTracker({ userId, onMealAdded }) {
       }
 
       let text = (await result.response).text();
-      // WYCINANIE JSONA (naprawia błąd formatu)
+      
+      // USUWANIE MOŻLIWYCH OZNACZEŃ KODU (Markdown)
+      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("Błąd formatu odpowiedzi AI");
       const data = JSON.parse(jsonMatch[0]);
 
       await supabase.from('meals').insert({
         user_id: userId,
-        name: data.name || "Posiłek AI",
+        name: data.name || "Posiłek",
         calories: Math.round(data.calories || 0),
         protein: data.protein || 0,
         fat: data.fat || 0,
@@ -63,7 +67,7 @@ export default function MealTracker({ userId, onMealAdded }) {
       
     } catch (err) {
       console.error(err);
-      alert("AI miało problem z formatem danych. Spróbuj opisać posiłek dokładniej.");
+      alert("AI zwróciło nieczytelny format. Spróbuj jeszcze raz.");
     } finally {
       setLoading(false);
     }
