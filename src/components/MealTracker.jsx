@@ -17,15 +17,8 @@ export default function MealTracker({ userId, onMealAdded }) {
     return { inlineData: { data: base64, mimeType: file.type } };
   }
 
-  const handleBarcodeDetected = (product) => {
-    setShowScanner(false);
-    // Bardziej precyzyjny opis dla AI
-    const description = `Produkt: ${product.name}. Wartości na 100g: ${product.kcal} kcal, Białko: ${product.p}g, Tłuszcz: ${product.f}g, Węglowodany: ${product.c}g. Zjadłem (wpisz ilość w gramach): `;
-    setInput(description);
-  };
-
-  const handleAnalyze = async () => {
-    if (!input && !image) return alert("Wpisz opis, dodaj foto lub użyj skanera!");
+  // Funkcja pomocnicza do wysyłania zapytania do AI
+  const analyzeMeal = async (textToAnalyze, imageFile = null) => {
     setLoading(true);
     try {
       const model = genAI.getGenerativeModel({ 
@@ -33,9 +26,15 @@ export default function MealTracker({ userId, onMealAdded }) {
         generationConfig: { responseMimeType: "application/json" } 
       });
       
-      const prompt = `Analiza posiłku: "${input}". Na podstawie podanych wartości (jeśli są) lub Twojej wiedzy oblicz sumę. Zwróć TYLKO JSON: {"name": "nazwa", "kcal": 100, "p": 0, "f": 0, "c": 0}.`;
+      const prompt = `Analiza posiłku: "${textToAnalyze}". Na podstawie podanych wartości (jeśli są) lub Twojej wiedzy oblicz sumę. Zwróć TYLKO JSON: {"name": "nazwa", "kcal": 100, "p": 0, "f": 0, "c": 0}.`;
       
-      let result = image ? await model.generateContent([prompt, await fileToGenerativePart(image)]) : await model.generateContent(prompt);
+      let result;
+      if (imageFile) {
+        result = await model.generateContent([prompt, await fileToGenerativePart(imageFile)]);
+      } else {
+        result = await model.generateContent(prompt);
+      }
+      
       const data = JSON.parse((await result.response).text());
 
       await supabase.from('meals').insert({
@@ -51,10 +50,29 @@ export default function MealTracker({ userId, onMealAdded }) {
       setImage(null);
       if (onMealAdded) onMealAdded();
     } catch (err) {
-      alert("Błąd AI. Jeśli przekroczyłeś limit, spróbuj później.");
+      alert("Błąd AI. Spróbuj opisać posiłek ręcznie.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBarcodeDetected = (product) => {
+    setShowScanner(false);
+    
+    // Zapytanie użytkownika o wagę
+    const weight = window.prompt(`Zeskanowano: ${product.name}\nIle gramów zjadłeś?`, "100");
+    
+    if (weight !== null && weight !== "") {
+      const fullDescription = `Produkt: ${product.name}. Wartości na 100g: ${product.kcal} kcal, Białko: ${product.p}g, Tłuszcz: ${product.f}g, Węglowodany: ${product.c}g. Ilość zjedzona: ${weight}g.`;
+      
+      // Automatyczne wysłanie do AI po wpisaniu wagi
+      analyzeMeal(fullDescription);
+    }
+  };
+
+  const handleManualAnalyze = () => {
+    if (!input && !image) return alert("Wpisz opis lub zrób zdjęcie!");
+    analyzeMeal(input, image);
   };
 
   return (
@@ -77,8 +95,8 @@ export default function MealTracker({ userId, onMealAdded }) {
         rows="2" 
       />
       
-      <button onClick={handleAnalyze} disabled={loading} style={mainBtn}>
-        {loading ? '...' : 'Wyślij do AI'}
+      <button onClick={handleManualAnalyze} disabled={loading} style={mainBtn}>
+        {loading ? 'Przetwarzanie...' : 'Dodaj przez AI'}
       </button>
     </div>
   );
@@ -86,4 +104,4 @@ export default function MealTracker({ userId, onMealAdded }) {
 
 const subBtn = { flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#1e293b', fontSize: '0.85em', fontWeight: 'bold', textAlign: 'center', cursor: 'pointer' };
 const txtArea = { width: '100%', padding: '12px', boxSizing: 'border-box', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', backgroundColor: '#ffffff', color: '#1e293b', fontSize: '16px', fontFamily: 'inherit', WebkitAppearance: 'none' };
-const mainBtn = { width: '100%', padding: '14px', backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' };
+const mainBtn = { width: '100%', padding: '14px', backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', width: '100%' };
